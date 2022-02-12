@@ -2,9 +2,8 @@
  * Trying to follow BSD KNF guidelines
  * NULL is replaced with 0 in here because I blindly follow
  * what I read on books :D (Modern C btw)
- * TODO: add all the functions to the prompt
- *       save anons to a file
- *       read anons from a file
+ * TODO: finish the file saving
+ *       add history to the commands with readline/history.
  */
 
 #include <stdio.h>
@@ -239,12 +238,47 @@ helpPrint()
 	       "\texit: exit the program\n");
 }
 
+struct dumm_anon{
+	char name[5]; //it >>has<< to be "anon"
+	bool gender;
+	uint64_t d_sucked; //may overflow
+	uint8_t hugs_in_life;
+	/* uint4_t could suffice, but it is not standard */
+	size_t animes_seen;
+};
+typedef struct dumm_anon dumm_anon;
+
+//copy anon to a dumm_anon for saving purposes
 void
-fSaveAnon(anon *list, FILE *f)
+dummCopy(anon *source, dumm_anon *target)
 {
-	
+	strcpy(target->name, "anon");
+	target->gender = source->gender;
+	target->d_sucked = source->d_sucked;
+	target->hugs_in_life = source->hugs_in_life;
+	target->animes_seen = source->animes_seen;
 }
-       
+
+int
+listSave(const char *fname, anon *node)
+{
+	//check fo bs
+	FILE *f;
+	f = fopen(fname, "w");
+	if(f == 0x0) {
+		fprintf(stderr, "Error creating file '%s'.\n",
+			fname);
+		return (1);
+	}
+	for (;;) {
+		if (node->prev_anon == 0)
+			break;
+		node = node->prev_anon;
+	}
+	for (;;) {
+	}
+}
+
 void
 promptStart(anon* node)
 {
@@ -255,6 +289,7 @@ promptStart(anon* node)
 		cmd = readline(">> ");
 		if (cmd == 0x0) /* I live for the jank */
 			continue;
+		
 		else if (!strcmp(cmd, "help")) /* help */
 			helpPrint();
 		
@@ -272,17 +307,17 @@ promptStart(anon* node)
 			anon *tmp = anonCreate();
 			anonGets(tmp);
 			anonAppend(node, tmp);
+			
 		} else if (!strcmp(cmd, "anonUp")) /* anonMove */
 			node = anonMove(node, 1);
 
 		else if (!strcmp(cmd, "anonDown")) /* anonMove */
 			node = anonMove(node, -1);
-		
+
 		else if (!strcmp(cmd, "exit")){
 			listRemove(node);
 			break;
-		}
-		else
+		} else
 			printf("I don't recognize that option, try \"help\"\n");	
 	}
 }
@@ -290,7 +325,7 @@ promptStart(anon* node)
 int
 main()
 {
-	anon *foo = anonCreate();
-	promptStart(foo);
-	return (0);
+	anon *lst = anonCreate();
+	promptStart(lst);
+ 	return (0);
 }
