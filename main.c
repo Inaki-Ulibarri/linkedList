@@ -2,8 +2,7 @@
  * Trying to follow BSD KNF guidelines
  * NULL is replaced with 0 in here because I blindly follow
  * what I read on books :D (Modern C btw)
- * TODO: finish the file saving
- *       add history to the commands with readline/history.
+ * TODO: add history to the commands with readline/history.
  */
 
 #include <stdio.h>
@@ -91,11 +90,17 @@ anonGets(anon *ann)
 void
 anonAppend(anon *node, anon *app)
 {
-	anon *tail = node->next_anon;
-	node->next_anon = app;
-	app->next_anon = tail;
-	app->prev_anon = node;
-	tail->prev_anon = app;
+	if (node->next_anon == 0) {
+		node->next_anon = app;
+		app->prev_anon = node;
+		app->next_anon = 0;
+	} else {
+		anon *tail = node->next_anon;
+		node->next_anon = app;
+		app->next_anon = tail;
+		app->prev_anon = node;
+		tail->prev_anon = app;
+	}
 }
 
 /* Remove an anon from the list */
@@ -222,22 +227,6 @@ listPrint(anon *node)
 	}
 }
 
-/* Remind to keep expanding this help text */
-void
-helpPrint()
-{
-	printf("Some help: This is a basic linked list program \n"
-	       "The commands of this program are: \n"
-	       "\thelp: display this help text \n"
-	       "\tlistCreate: create a list with the default values\n"
-	       "\tlistPrint: list the current list\n"
-	       "\tanonAppend: Append an anon to the list\n"
-	       "\tanonPrint: Print the current anon\n"
-	       "\tanonUp: Move one anon up the list\n"
-	       "\tanonDown: Move one anon down the list\n"
-	       "\texit: exit the program\n");
-}
-
 struct dumm_anon{
 	char name[5]; //it >>has<< to be "anon"
 	bool gender;
@@ -250,7 +239,7 @@ typedef struct dumm_anon dumm_anon;
 
 //copy anon to a dumm_anon for saving purposes
 void
-dummCopy(anon *source, dumm_anon *target)
+anonToDumm(const anon *source, dumm_anon *target)
 {
 	strcpy(target->name, "anon");
 	target->gender = source->gender;
@@ -259,10 +248,21 @@ dummCopy(anon *source, dumm_anon *target)
 	target->animes_seen = source->animes_seen;
 }
 
+void
+dummToAnon(const dumm_anon *source, anon *target, anon *prv, anon *nxt)
+{
+	strcpy(target->name, "anon");
+	target->gender = source->gender;
+	target->d_sucked = source->d_sucked;
+	target->hugs_in_life = source->hugs_in_life;
+	target->animes_seen = source->animes_seen;
+	target->prev_anon = prv;
+	target->next_anon = nxt;
+}
+
 int
 listSave(const char *fname, anon *node)
 {
-	//check fo bs
 	FILE *f;
 	f = fopen(fname, "w");
 	if(f == 0x0) {
@@ -275,8 +275,78 @@ listSave(const char *fname, anon *node)
 			break;
 		node = node->prev_anon;
 	}
-	for (;;) {
+	dumm_anon *foo = malloc(sizeof(dumm_anon));
+	for (;;) {	
+		anonToDumm(node, foo);
+		fwrite(foo, sizeof(dumm_anon), 1, f);
+		if (node->next_anon == 0)
+			break;
+		node = node->next_anon;
 	}
+	fclose(f);
+	free(foo);
+	return (0);
+}
+
+
+void
+dummPrint(dumm_anon *node)
+{
+	printf("\nName:\t%s\n"
+	       "gender:\t%s\n"
+	       "Dicks Sucked:\t%lu\n"
+	       "Hugs received:\t%u\n"
+	       "Animes seen:\t%zu\n"
+	       "\n"
+	       ,node->name,
+	       (node->gender == FEMALE ? "female":"male"),
+	       node->d_sucked,
+	       node->hugs_in_life,
+	       node->animes_seen);
+}
+
+int
+listRead(const char *fname, anon *head)
+{
+	FILE *f;
+	f = fopen(fname, "r");
+	if (f == 0x0) {
+		fprintf(stderr, "Error opening file '%s'\n",
+			fname);
+		return (1);
+	}
+	
+	dumm_anon dmm;
+	anon *node = anonCreate();
+	fread(&dmm, sizeof(dumm_anon), 1, f);
+	dummToAnon(&dmm, head, 0, 0);
+ 	while(fread(&dmm, sizeof(dumm_anon), 1, f)) {
+		dummToAnon(&dmm, node, head, 0);
+		anonAppend(head, node);
+		head = node;
+		node = anonCreate();
+	}
+	
+	free(node);
+	fclose(f);
+	return (0);
+}
+
+void
+helpPrint()
+{
+	printf("Some help: This is a basic linked list program \n"
+	       "The commands of this program are: \n"
+	       "\thelp: display this help text \n"
+	       "\tlistCreate: create a list with the default values\n"
+	       "\tlistPrint: list the current list\n"
+	       "\tanonAppend: Append an anon to the list\n"
+	       "\tanonPrint: Print the current anon\n"
+	       "\tanonUp: Move one anon up the list\n"
+	       "\tanonDown: Move one anon down the list\n"
+	       "\tlistSave: Save a list to a file\n"
+	       "\tlistRead: Read a list from a file\n"
+	       "\texit: exit the program\n");
 }
 
 void
@@ -300,7 +370,7 @@ promptStart(anon* node)
 		} else if (!strcmp(cmd, "listPrint")) /* listPrint */
 			listPrint(node);
 		
-		else if(!strcmp(cmd, "anonPrint")) /* anonPrintn*/
+		else if(!strcmp(cmd, "anonPrint")) /* anonPrint */
 			anonPrint(node);
 		
 		else if (!strcmp(cmd, "anonAppend")) { /* anonAppend */
@@ -313,8 +383,22 @@ promptStart(anon* node)
 
 		else if (!strcmp(cmd, "anonDown")) /* anonMove */
 			node = anonMove(node, -1);
+		
+		else if (!strcmp(cmd, "listSave")) { /* listSave */
+			printf("Name for the database: ");
+			char name[68];
+			fgets(name, 68, stdin);
+			sscanf(name, " %s", name);
+			listSave(name, node);
 
-		else if (!strcmp(cmd, "exit")){
+		} else if (!strcmp(cmd, "listRead")) { /* listRead */
+			printf("Name for the database: ");
+			char name[68];
+			fgets(name, 68, stdin);
+			sscanf(name, " %s", name);
+			listRead(name, node);
+			
+		} else if (!strcmp(cmd, "exit")){
 			listRemove(node);
 			break;
 		} else
@@ -325,7 +409,7 @@ promptStart(anon* node)
 int
 main()
 {
-	anon *lst = anonCreate();
+	anon *lst = listCreate();
 	promptStart(lst);
  	return (0);
 }
