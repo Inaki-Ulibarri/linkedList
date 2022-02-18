@@ -1,8 +1,9 @@
-/*
- * Trying to follow BSD KNF guidelines
+/**
  * NULL is replaced with 0 in here because I blindly follow
- * what I read on books :D (Modern C btw)
+ * what I read on books :D (Modern C btw), exceptions are
+ * must use '0x0'
  * TODO: add history to the commands with readline/history.
+ *       improve readability
  */
 
 #include <stdio.h>
@@ -18,7 +19,7 @@ struct anon{
 	bool gender;
 	uint64_t d_sucked; //may overflow
 	uint8_t hugs_in_life;
-	/* uint4_t could suffice, but it is not standard */
+	// uint4_t could suffice, but it is not standard
 	size_t animes_seen;
 	struct anon *prev_anon;
 	struct anon *next_anon;
@@ -51,31 +52,30 @@ anonInit(anon *ann,
 	ann->next_anon = next;
 }
 
+//get an anon from the user
 void
 anonGets(anon *ann)
 {
-	char inp[64];
+	/* user safe input, I tested it with */
+	/* my mom :D */
+	char *inp;
 	bool gnd;
-	printf("Male or Female: ");
-	fgets(inp, 64, stdin);
-	/* probably add regex to this thing */
+	
+	inp = readline("Male or Female: ");
 	if (strcmp(inp, "Female") ||
 	    strcmp(inp, "female"))
 		gnd = FEMALE;
 	else
 		gnd = MALE;
 	
-	printf("Dicks sucked: ");
-	fgets(inp, 64, stdin);
+	inp = readline("Dicks sucked: ");
         uint64_t d_suck;
 	sscanf(inp, "%zu", &d_suck);
 	
-	printf("Hugs in life: ");
-	fgets(inp, 64, stdin);
+	inp = readline("Hugs in life: ");
 	uint8_t hgs_in_lf = (uint8_t)atoi(inp);
-
-	printf("Anime Watched (quantity): ");
-	fgets(inp, 64, stdin);
+	 
+	inp = readline("Anime Watched (quantity): ");
 	size_t an_seen = atol(inp);
 
 	anonInit(ann,
@@ -90,7 +90,7 @@ anonGets(anon *ann)
 void
 anonAppend(anon *node, anon *app)
 {
-	if (node->next_anon == 0) {
+	if (node->next_anon == 0) { /* node is a tail */
 		node->next_anon = app;
 		app->prev_anon = node;
 		app->next_anon = 0;
@@ -103,15 +103,14 @@ anonAppend(anon *node, anon *app)
 	}
 }
 
-/* Remove an anon from the list */
 void
 anonRemove(anon *node)
 {
-	if (node->prev_anon == 0){
+	if (node->prev_anon == 0) { //head
 		anon *nxt = node->next_anon;
 		nxt->prev_anon = 0;
 		free (node);
-	} else if (node->next_anon == 0) {
+	} else if (node->next_anon == 0) { //tail
 		anon *prv = node->prev_anon;
 		prv->next_anon = 0;
 		free (node);
@@ -123,7 +122,8 @@ anonRemove(anon *node)
 		free (node);
 	}
 }
-	
+
+/* Will make a list with default values */
 anon*
 listCreate()
 {
@@ -159,6 +159,7 @@ listCreate()
 void
 listRemove(anon *node)
 {
+	/* find the head of the list */
 	while (node->prev_anon != 0)
 		node = node->prev_anon;
 
@@ -177,13 +178,13 @@ anon*
 anonMove(anon *node, const int pos)
 {
 	int i = pos;
-	if (pos < 0){
+	if (pos < 0) { /* move down */
 		for (; i < 0; ++i){
 			if (node->prev_anon == 0)
 				break;
 			node = node->prev_anon;
 		}
-	} else if (pos > 0) {
+	} else if (pos > 0) { /* move up */
 		for (; i > 0; --i){
 			if (node->next_anon == 0)
 				break;
@@ -209,35 +210,31 @@ anonPrint(anon *node)
 	       node->animes_seen);
 }
 
-/* the function expects the head of the linked list, */
-/* in case it is not, it >>will<< find it */
 void
 listPrint(anon *node)
 {
+	/* find the head of the list */
 	while(node->prev_anon != 0){
 		node = node->prev_anon;
 	}
-
-	/* won't write an overcomplicated for loop */
-	for(;;) {
+	do {
 		anonPrint(node);
-		if(node->next_anon == 0)
-			break;
 		node = node->next_anon;
-	}
+	} while (node);
 }
 
+/* This is copy of anon proper but without the pointers */
+/* this is necesary to write the list to a file */
 struct dumm_anon{
-	char name[5]; //it >>has<< to be "anon"
+	char name[5];
 	bool gender;
-	uint64_t d_sucked; //may overflow
+	uint64_t d_sucked; 
 	uint8_t hugs_in_life;
-	/* uint4_t could suffice, but it is not standard */
 	size_t animes_seen;
 };
 typedef struct dumm_anon dumm_anon;
 
-//copy anon to a dumm_anon for saving purposes
+/* converter function to anon and dumm_anon*/
 void
 anonToDumm(const anon *source, dumm_anon *target)
 {
@@ -263,16 +260,16 @@ dummToAnon(const dumm_anon *source, anon *target, anon *prv, anon *nxt)
 int
 listSave(const char *fname, anon *node)
 {
-	FILE *f;
-	f = fopen(fname, "w");
+	char new_name[32] = {0};
+	sscanf(fname, " %s", new_name);	
+	FILE *f;	
+	f = fopen(new_name, "w");
 	if(f == 0x0) {
-		fprintf(stderr, "Error creating file '%s'.\n",
-			fname);
+		fprintf(stderr, "Error creating file '%s'.\n", fname);
 		return (1);
 	}
-	for (;;) {
-		if (node->prev_anon == 0)
-			break;
+	
+	while (node->prev_anon != 0) {
 		node = node->prev_anon;
 	}
 	dumm_anon *foo = malloc(sizeof(dumm_anon));
@@ -288,28 +285,13 @@ listSave(const char *fname, anon *node)
 	return (0);
 }
 
-
-void
-dummPrint(dumm_anon *node)
-{
-	printf("\nName:\t%s\n"
-	       "gender:\t%s\n"
-	       "Dicks Sucked:\t%lu\n"
-	       "Hugs received:\t%u\n"
-	       "Animes seen:\t%zu\n"
-	       "\n"
-	       ,node->name,
-	       (node->gender == FEMALE ? "female":"male"),
-	       node->d_sucked,
-	       node->hugs_in_life,
-	       node->animes_seen);
-}
-
 int
 listRead(const char *fname, anon *head)
 {
+	char new_name[32] = {0};
+	sscanf(fname, " %s", new_name);
 	FILE *f;
-	f = fopen(fname, "r");
+	f = fopen(new_name, "r");
 	if (f == 0x0) {
 		fprintf(stderr, "Error opening file '%s'\n",
 			fname);
@@ -336,7 +318,7 @@ void
 helpPrint()
 {
 	printf("Some help: This is a basic linked list program \n"
-	       "The commands of this program are: \n"
+	       "Commands: \n"
 	       "\thelp: display this help text \n"
 	       "\tlistCreate: create a list with the default values\n"
 	       "\tlistPrint: list the current list\n"
@@ -346,9 +328,12 @@ helpPrint()
 	       "\tanonDown: Move one anon down the list\n"
 	       "\tlistSave: Save a list to a file\n"
 	       "\tlistRead: Read a list from a file\n"
+	       "\tlistRemove: remove the current list from memory\n"
 	       "\texit: exit the program\n");
 }
 
+/* this starts the prompt for user interaction, */
+/* it could be cleaner, but it works and that's the important thing */
 void
 promptStart(anon* node)
 {
@@ -357,50 +342,49 @@ promptStart(anon* node)
 		/* Yanderedeving, some anon told it wasn't that bad */
 		/* for simple stuff */
 		cmd = readline(">> ");
-		if (cmd == 0x0) /* I live for the jank */
+		if (cmd == 0x0) { /* i live for the jank */
+			listRemove(node);
 			continue;
-		
-		else if (!strcmp(cmd, "help")) /* help */
+			
+		} else if (!strcmp(cmd, "listRemove")) { /* listRemove */
+			listRemove(node);
+			
+		} else if (!strcmp(cmd, "exit")) { /* exit */
+			listRemove(node);
+			break;
+			
+		} else if (!strcmp(cmd, "help")) { /* help */
 			helpPrint();
 		
-		else if (!strcmp(cmd, "listCreate")){ /* listCreate */
+		} else if (!strcmp(cmd, "listCreate")){ /* listCreate */
 			node = listCreate();
 			listPrint(node);
 		
-		} else if (!strcmp(cmd, "listPrint")) /* listPrint */
+		} else if (!strcmp(cmd, "listPrint")) { /* listPrint */
 			listPrint(node);
 		
-		else if(!strcmp(cmd, "anonPrint")) /* anonPrint */
+		}else if (!strcmp(cmd, "anonPrint")) { /* anonPrint */
 			anonPrint(node);
 		
-		else if (!strcmp(cmd, "anonAppend")) { /* anonAppend */
+		} else if (!strcmp(cmd, "anonAppend")) { /* anonAppend */
 			anon *tmp = anonCreate();
 			anonGets(tmp);
 			anonAppend(node, tmp);
 			
-		} else if (!strcmp(cmd, "anonUp")) /* anonMove */
+		} else if (!strcmp(cmd, "anonUp")) { /* anonMove */
 			node = anonMove(node, 1);
 
-		else if (!strcmp(cmd, "anonDown")) /* anonMove */
+		} else if (!strcmp(cmd, "anonDown")) { /* anonMove */
 			node = anonMove(node, -1);
 		
-		else if (!strcmp(cmd, "listSave")) { /* listSave */
-			printf("Name for the database: ");
-			char name[68];
-			fgets(name, 68, stdin);
-			sscanf(name, " %s", name);
+		} else if (!strcmp(cmd, "listSave")) { /* listSave */
+			char *name = readline("Name of the database: ");
 			listSave(name, node);
 
 		} else if (!strcmp(cmd, "listRead")) { /* listRead */
-			printf("Name for the database: ");
-			char name[68];
-			fgets(name, 68, stdin);
-			sscanf(name, " %s", name);
+			char *name = readline("Name for the database: ");
 			listRead(name, node);
 			
-		} else if (!strcmp(cmd, "exit")){
-			listRemove(node);
-			break;
 		} else
 			printf("I don't recognize that option, try \"help\"\n");	
 	}
